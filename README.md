@@ -1,6 +1,6 @@
 # katlab Image to SVG
 
-Source code of **[tools.katlab.dev/image-to-svg](https://tools.katlab.dev/image-to-svg/)**, a free, fully client-side black-and-white tracer. It turns line art, sketches, lettering and one-colour logos into vector SVG or print-ready PDF. Images never leave the browser.
+Source code of **[tools.katlab.dev/image-to-svg](https://tools.katlab.dev/image-to-svg/)**, a free, fully client-side black-and-white tracer. It turns line art, sketches, lettering and one-colour logos into vector SVG, print-ready PDF or DXF. Images never leave the browser.
 
 Tracing is done by [Potrace](https://potrace.sourceforge.net/) 1.16 by Peter Selinger, compiled to WebAssembly. Potrace is GPL-2.0-or-later, and so is this repository. See [LICENSE](LICENSE).
 
@@ -22,10 +22,27 @@ On a clean 864×1226 coloring page at 8×, the trace takes about 0.2–0.5 s and
 | `upstream/potrace-1.16.tar.gz` | Unmodified upstream Potrace 1.16 source. SHA-256 `be8248a17dedd6ccbaab2fcc45835bb0502d062e40fbded3bc56028ce5eb7acc` |
 | `src/vt.c` | WebAssembly glue: streaming resample and threshold, Potrace call, path serialisation, progress |
 | `build.sh` | Builds `dist/potrace-v1.{js,wasm}` |
-| `web/assets/potrace-r2/` | The exact engine files deployed on tools.katlab.dev |
-| `web/assets/vectorize-worker-v2.js` | Module worker: decoding, pre-processing, Otsu threshold, engine calls |
-| `web/image-to-svg/index.html` | The tool page: UI, preview, compare view, SVG, PDF and zip export |
+| `site/assets/potrace-r2/` | The exact engine files deployed on tools.katlab.dev |
+| `site/vectorize-worker.js` | Module worker: decoding, pre-processing, Otsu threshold, engine calls |
+| `site/image-to-svg.js` | Page module: UI, preview, compare view, and SVG, PDF, DXF and zip export |
+| `site/template.html` | Page template shared by the tool and its landing pages |
+| `site/pages.mjs` | Page definitions (copy, FAQ, default preset) and the versioned asset names |
+| `site/generate.mjs` | Writes every page plus the versioned assets into a tools-site checkout |
 | `test/golden.mjs` | Node harness that traces a raw 8-bit greyscale file |
+
+## Generating the pages
+
+```sh
+node site/generate.mjs ../katlab-tools
+```
+
+This writes `/<slug>/index.html` for every entry in `site/pages.mjs`. It also writes the module, the worker and the engine into `assets/` under the versioned names set in `pages.mjs`. Assets are served with an immutable one-year cache, so the generator refuses to overwrite an existing asset with different content. When you change the module or the worker, bump its name.
+
+## DXF export
+
+- Traced Bézier curves are flattened into closed polylines, to within 0.1 source pixel.
+- The file is DXF R12 (`AC1009`), which almost every CAD, laser, CNC and plotter program reads.
+- Units follow the "SVG / DXF size" setting: millimetres, inches, or unitless pixels.
 
 ## Building
 
@@ -36,7 +53,7 @@ You need [emsdk](https://github.com/emscripten-core/emsdk) **6.0.10**, the versi
 ./build.sh
 ```
 
-The output in `dist/` is byte-identical to `web/assets/potrace-r2/`.
+The output in `dist/` is byte-identical to `site/assets/potrace-r2/`.
 
 For the Node test build:
 
