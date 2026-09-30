@@ -1,0 +1,6 @@
+build/
+dist/
+dist-node/
+node_modules/
+*.svg
+*.raw

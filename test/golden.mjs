@@ -1,0 +1,16 @@
+import fs from 'fs';
+import createPotrace from '../dist-node/potrace-v1.js';
+const [file, w, h, factor = 8, out = 'golden.svg'] = process.argv.slice(2);
+const gray = fs.readFileSync(file);
+const W = +w, H = +h, f = +factor;
+if (gray.length !== W * H) throw new Error(`expected ${W * H} bytes of 8-bit greyscale, got ${gray.length}`);
+const M = await createPotrace();
+const p = M._malloc(gray.length);
+M.HEAPU8.set(gray, p);
+const t = performance.now();
+const r = M._vt_trace(p, W, H, f, 0, 0.5, 0, Math.max(1, Math.floor(8 * f * f / 16)), 4, 1.0, 1, 0.2, 2);
+const ms = performance.now() - t;
+if (!r) throw new Error('trace failed: ' + M._vt_error());
+const d = M.UTF8ToString(r, M._vt_len());
+fs.writeFileSync(out, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><path fill="#000" d="${d}"/></svg>`);
+console.log(`${f}x: ${ms.toFixed(0)} ms, ${M._vt_paths()} paths, ${M._vt_segments()} segments -> ${out}`);
