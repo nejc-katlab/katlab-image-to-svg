@@ -79,6 +79,10 @@
   .row input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--rule); border-radius: 4px; background: none; cursor: pointer; }
   .row input[type=checkbox] { accent-color: var(--hl); }
   .row.dim { opacity: .45; pointer-events: none; }
+  .seg.modeseg { display: flex; margin-bottom: 12px; }
+  .seg.modeseg button { flex: 1; }
+  .palette { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
+  .palette span { width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--rule); }
   .hint { font-size: 11px; color: var(--fg-muted); margin: -2px 0 8px; }
   .hint.warn { color: var(--hl); }
   details.adv { margin-top: 10px; border-top: 1px solid var(--rule); padding-top: 8px; }
@@ -143,7 +147,7 @@
   footer a { color: var(--fg-dim); }
 </style>
 </head>
-<body data-preset="{{PRESET}}"{{UNITS}}>
+<body data-preset="{{PRESET}}" data-mode="{{MODE}}"{{UNITS}}>
 <header>
   <div class="bar">
     <a class="brand" href="https://katlab.dev">kat<span class="accent">lab</span></a>
@@ -166,6 +170,8 @@
 
   <section class="tool" id="tool">
     <div class="panel">
+      <div class="seg modeseg" id="modeSeg"><button data-mode="bw" class="on">Black &amp; white</button><button data-mode="color">Colour</button></div>
+      <div id="bwPanel">
       <h2>Preset</h2>
       <div class="row"><select id="preset">
         <option value="ink">Clean digital ink</option>
@@ -189,7 +195,6 @@
 
       <h2>Look</h2>
       <div class="row"><label for="color">Line colour</label><input type="color" id="color" value="#000000"></div>
-      <div class="row"><label for="bg">Background</label><select id="bg"><option value="none">Transparent</option><option value="#ffffff">White</option></select></div>
 
       <details class="adv" id="adv">
         <summary>Advanced</summary>
@@ -200,7 +205,30 @@
         <div class="row"><label for="alphaInk">Transparency is ink</label><input type="checkbox" id="alphaInk"></div>
       </details>
 
+      </div>
+
+      <div id="colorPanel" hidden>
+      <h2>Preset</h2>
+      <div class="row"><select id="cpreset">
+        <option value="logo">Logo / flat colours</option>
+        <option value="illustration">Illustration</option>
+        <option value="poster">Poster (photo)</option>
+      </select></div>
+      <div class="hint" id="cpresetHint"></div>
+      <h2>Trace</h2>
+      <div class="row" id="colorsRow"><label for="colors">Max colours</label><input type="range" id="colors" min="2" max="64" step="1" value="16"><span class="val" id="colorsV">16</span></div>
+      <div class="hint" id="paletteHint"></div>
+      <div class="row" id="cfactorRow"><label for="cfactor">Detail (upscale)</label><select id="cfactor"><option value="auto">Auto</option><option value="1">1×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></div>
+      <div class="hint" id="cfactorHint"></div>
+      <div class="row"><label for="cspecks">Remove specks</label><input type="range" id="cspecks" min="0" max="20" step="1" value="4"><span class="val" id="cspecksV">4 px</span></div>
+      <div class="row" id="cornerRow"><label for="corner">Corner threshold</label><input type="range" id="corner" min="10" max="150" step="5" value="45"><span class="val" id="cornerV">45°</span></div>
+      <div class="row"><label for="csmooth">Curve smoothing</label><input type="range" id="csmooth" min="0" max="3" step="0.1" value="0.5"><span class="val" id="csmoothV">0.5</span></div>
+      <div class="row"><label for="layering">Layering</label><select id="layering"><option value="stacked">Stacked (no gaps)</option><option value="cutout">Cut-out (no overlaps)</option></select></div>
+      <div class="palette" id="palette"></div>
+      </div>
+
       <h2>Export</h2>
+      <div class="row"><label for="bg">Background</label><select id="bg"><option value="none">Transparent</option><option value="#ffffff">White</option></select></div>
       <div class="row"><label for="svgSize">SVG / DXF size</label><select id="svgSize"><option value="px">Image pixels</option><option value="mm">Width in mm</option><option value="in">Width in inches</option></select></div>
       <div class="row dim" id="svgWRow"><span class="lbl"></span><input type="number" id="svgW" min="1" step="0.1" value="210"></div>
       <div class="row"><label for="page">PDF page</label><select id="page">

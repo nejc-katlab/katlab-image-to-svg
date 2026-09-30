@@ -4,3 +4,4 @@ dist-node/
 node_modules/
 *.svg
 *.raw
+vtracer/target/

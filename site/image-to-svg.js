@@ -4,6 +4,15 @@ const FINAL_BUDGET = LOWMEM ? 20e6 : 70e6;
 const PREVIEW_BUDGET = LOWMEM ? 3e6 : 8e6;
 const MAX_SRC = LOWMEM ? 16e6 : 40e6;
 const FACTORS = [1, 2, 3, 4, 6, 8];
+const CFACTORS = [1, 2, 3, 4];
+const COLOR_BUDGET = LOWMEM ? 4e6 : 16e6;
+const COLOR_PREVIEW = LOWMEM ? 0.6e6 : 1.5e6;
+const POSTER_BUDGET = LOWMEM ? 1e6 : 2e6;
+const CPRESETS = {
+  logo: { colors: 16, cspecks: 4, corner: 45, csmooth: 0.5, layering: 'stacked', hint: 'Flat-colour logos, icons and badges.' },
+  illustration: { colors: 32, cspecks: 4, corner: 60, csmooth: 0.5, layering: 'stacked', hint: 'Cartoons and illustrations with more colours.' },
+  poster: { colors: 32, cspecks: 8, corner: 60, csmooth: 1, layering: 'stacked', hint: 'Photos become a posterised, artistic vector — not a faithful copy.' },
+};
 const PRESETS = {
   ink:   { thr: 50, autoThr: false, factor: 'auto', specks: 0.5, alpha: 1.0, resampler: 0, tol: 0.2, flat: false, denoise: false },
   scan:  { thr: 50, autoThr: true,  factor: 'auto', specks: 4,   alpha: 1.0, resampler: 0, tol: 0.2, flat: true,  denoise: true },
@@ -35,7 +44,12 @@ spawn();
 function setStatus(t, cls = '') { const s = $('#status'); s.textContent = t; s.className = cls; }
 function progress(p) { const el = $('#prog'); el.classList.toggle('on', p != null); el.firstElementChild.style.width = ((p || 0) * 100).toFixed(1) + '%'; }
 
+function mode() { return $('#modeSeg .on').dataset.mode; }
 function opts() {
+  if (mode() === 'color') return {
+    mode: 'color', cpreset: $('#cpreset').value, colors: +$('#colors').value, cspecks: +$('#cspecks').value,
+    corner: +$('#corner').value, csmooth: +$('#csmooth').value, layering: $('#layering').value,
+  };
   return {
     thr: +$('#thr').value / 100, autoThr: $('#autoThr').checked, specks: +$('#specks').value, alphamax: +$('#alpha').value,
     invert: $('#invert').checked, resampler: +$('#resampler').value, tolerance: +$('#tol').value,
@@ -43,8 +57,36 @@ function opts() {
   };
 }
 function autoFactor(w, h, budget) { let f = 1; for (const k of FACTORS) if (w * h * k * k <= budget) f = k; return f; }
-function finalFactor(f) { const v = $('#factor').value; return v === 'auto' ? autoFactor(f.w, f.h, FINAL_BUDGET) : +v; }
-function previewFactor(f) { return Math.min(finalFactor(f), autoFactor(f.w, f.h, PREVIEW_BUDGET)); }
+function colorFactor(f, budget) { let k = 1; for (const c of CFACTORS) if (f.w * f.h * c * c <= budget) k = c; return k; }
+function posterFactor(f, budget) { return Math.min(1, Math.sqrt(budget / (f.w * f.h))); }
+function finalFactor(f) {
+  if (mode() === 'color') {
+    if ($('#cpreset').value === 'poster') return posterFactor(f, POSTER_BUDGET);
+    const v = $('#cfactor').value;
+    return v === 'auto' ? colorFactor(f, COLOR_BUDGET) : +v;
+  }
+  const v = $('#factor').value;
+  return v === 'auto' ? autoFactor(f.w, f.h, FINAL_BUDGET) : +v;
+}
+function previewFactor(f) {
+  if (mode() === 'color') {
+    if ($('#cpreset').value === 'poster') return Math.min(finalFactor(f), posterFactor(f, COLOR_PREVIEW));
+    return Math.min(finalFactor(f), colorFactor(f, COLOR_PREVIEW));
+  }
+  return Math.min(finalFactor(f), autoFactor(f.w, f.h, PREVIEW_BUDGET));
+}
+function applyCPreset(name) {
+  const p = CPRESETS[name];
+  $('#colors').value = p.colors; $('#cspecks').value = p.cspecks; $('#corner').value = p.corner; $('#csmooth').value = p.csmooth; $('#layering').value = p.layering;
+  $('#cpresetHint').textContent = p.hint;
+  labels();
+}
+function setMode(m) {
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  $('#bwPanel').hidden = m !== 'bw';
+  $('#colorPanel').hidden = m !== 'color';
+  labels();
+}
 function optKey(o) { return JSON.stringify(o); }
 
 function applyPreset(name) {
@@ -62,7 +104,19 @@ function labels() {
   $('#marginV').textContent = $('#margin').value + ' mm';
   $('#thr').disabled = $('#autoThr').checked;
   $('#svgWRow').classList.toggle('dim', $('#svgSize').value === 'px');
-  if (active && active.w) {
+  $('#colorsV').textContent = $('#colors').value;
+  $('#cspecksV').textContent = $('#cspecks').value + ' px';
+  $('#cornerV').textContent = $('#corner').value + '°';
+  $('#csmoothV').textContent = (+$('#csmooth').value).toFixed(1);
+  const poster = $('#cpreset').value === 'poster';
+  $('#colorsRow').hidden = $('#cornerRow').hidden = $('#cfactorRow').hidden = poster;
+  $('#paletteHint').hidden = poster;
+  if (active && active.w && mode() === 'color') {
+    const ff = finalFactor(active);
+    const mp = active.w * active.h * ff * ff / 1e6;
+    $('#cfactorHint').textContent = poster ? `Traced at ${mp.toFixed(1)} MP` : `${$('#cfactor').value === 'auto' ? 'Auto → ' : ''}${ff}× · ${mp.toFixed(0)} MP trace`;
+  }
+  if (active && active.w && mode() === 'bw') {
     const ff = finalFactor(active), pf = previewFactor(active);
     const auto = $('#factor').value === 'auto';
     const big = active.w * active.h * ff * ff;
@@ -138,7 +192,7 @@ function onWorker(e) {
   current = null; busySince = 0; progress(null);
   if (m.type === 'error') {
     if (m.oom && job.factor > 1) {
-      const lower = FACTORS.filter(k => k < job.factor).pop();
+      const lower = (job.opts.mode === 'color' ? CFACTORS : FACTORS).filter(k => k < job.factor).pop();
       setStatus(`Not enough memory at ${job.factor}× — retried at ${lower}×.`, 'warn');
       if (m.fatal) { worker.terminate(); spawn(); }
       run({ ...job, factor: lower, forced: true });
@@ -150,7 +204,10 @@ function onWorker(e) {
   }
   const f = files.find(x => x.id === m.id);
   if (!f) return;
-  const res = { d: m.d, w: m.w, h: m.h, factor: m.factor, thr: m.thr, paths: m.paths, segments: m.segments, ms: m.ms, key: job.key };
+  const res = m.kind === 'color'
+    ? { kind: 'color', shapes: m.paths, colors: m.colors, palette: m.palette, W: m.W, H: m.H, w: m.w, h: m.h, factor: m.factor, count: m.count, ms: m.ms, key: job.key }
+    : { kind: 'bw', d: m.d, w: m.w, h: m.h, factor: m.factor, thr: m.thr, paths: m.paths, segments: m.segments, ms: m.ms, key: job.key };
+  if (res.kind === 'color' && job.final && res.W * res.H > 6e6) setTimeout(() => { if (!current) { worker.terminate(); spawn(); } }, 0);
   if (job.final) f.results.final = res; else f.results.preview = res;
   if (job.batch) { job.batch(res); return; }
   if (f === active) {
@@ -191,17 +248,28 @@ function schedule(delay, final = false) {
   }, delay);
 }
 
-function svgString(res, forDisplay = false) {
-  const color = $('#color').value, bg = $('#bg').value;
+function svgString(res, forDisplay = false, forceBg = null) {
+  const color = $('#color').value, bg = forceBg || $('#bg').value;
   let size = `width="${res.w}" height="${res.h}"`;
   const unit = $('#svgSize').value;
   if (!forDisplay && unit !== 'px') {
     const sw = +$('#svgW').value || 100;
     size = `width="${sw}${unit}" height="${+(sw * res.h / res.w).toFixed(3)}${unit}"`;
   }
+  if (res.kind === 'color') {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${res.W} ${res.H}" ${size}>` +
+      (bg !== 'none' ? `<rect width="${res.W}" height="${res.H}" fill="${bg}"/>` : '') +
+      res.shapes.map(p => `<path d="${p.d}" fill="${p.fill}"/>`).join('') + '</svg>';
+  }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${res.w} ${res.h}" ${size}>` +
     (bg !== 'none' ? `<rect width="${res.w}" height="${res.h}" fill="${bg}"/>` : '') +
     `<path fill="${color}" d="${res.d}"/></svg>`;
+}
+function renderPalette(res) {
+  const box = $('#palette');
+  if (res.kind !== 'color' || !res.palette) { box.innerHTML = ''; $('#paletteHint').textContent = ''; return; }
+  box.innerHTML = res.palette.map(c => `<span style="background:${c}" title="${c}"></span>`).join('');
+  $('#paletteHint').textContent = `${res.palette.length} colour${res.palette.length === 1 ? '' : 's'} found in the image`;
 }
 
 let traceUrl = null;
@@ -212,7 +280,12 @@ function showResult(res, final) {
   traceUrl = URL.createObjectURL(new Blob([svgString(res, true)], { type: 'image/svg+xml' }));
   document.querySelectorAll('img.trace').forEach(i => i.src = traceUrl);
   const bytes = new Blob([svgString(res)]).size;
-  $('#stats').innerHTML = `${res.factor}× · ${res.paths.toLocaleString()} shapes · ${res.segments.toLocaleString()} curve segments · ${(bytes / 1024).toFixed(0)} KB · ${res.ms.toFixed(0)} ms` +
+  const fx = res.factor >= 1 ? res.factor + '×' : `${res.W}×${res.H} px`;
+  const body = res.kind === 'color'
+    ? `${fx} · ${res.colors} colours · ${res.count.toLocaleString()} shapes`
+    : `${fx} · ${res.paths.toLocaleString()} shapes · ${res.segments.toLocaleString()} curve segments`;
+  renderPalette(res);
+  $('#stats').innerHTML = `${body} · ${(bytes / 1024).toFixed(0)} KB · ${res.ms.toFixed(0)} ms` +
     (final ? '' : ' <span class="q">· preview, refining…</span>') + ' <span id="match" class="q"></span>';
   ['#dlSvg', '#dlPdf', '#dlDxf', '#copySvg'].forEach(s => $(s).disabled = !final);
   if (final) measure(res);
@@ -238,12 +311,23 @@ function rasterPair(res, maxPx = 4e6) {
     a.onload = b.onload = done;
     a.src = active.url;
     const inv = $('#invert').checked;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${res.w} ${res.h}" width="${res.w}" height="${res.h}"><rect width="${res.w}" height="${res.h}" fill="${inv ? '#000' : '#fff'}"/><path fill="${inv ? '#fff' : '#000'}" d="${res.d}"/></svg>`;
+    const svg = res.kind === 'color' ? svgString(res, true, '#ffffff') : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${res.w} ${res.h}" width="${res.w}" height="${res.h}"><rect width="${res.w}" height="${res.h}" fill="${inv ? '#000' : '#fff'}"/><path fill="${inv ? '#fff' : '#000'}" d="${res.d}"/></svg>`;
     b.src = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   });
 }
 const lum = (d, i) => (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) / 255;
 async function measure(res) {
+  if (res.kind === 'color') {
+    const { w, h, A, B } = await rasterPair(res);
+    let s = 0, off = 0;
+    for (let i = 0; i < A.length; i += 4) {
+      const d = Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]);
+      s += d; if (d > 90) off++;
+    }
+    const m = $('#match');
+    if (m && shown === res) m.textContent = `· average colour difference ${(s / (w * h * 765) * 100).toFixed(1)}%, ${(off / (w * h) * 100).toFixed(1)}% of pixels visibly off`;
+    return;
+  }
   if ($('#flat').checked || $('#denoise').checked || $('#alphaInk').checked) { const m = $('#match'); if (m) m.textContent = ''; return; }
   const { w, h, A, B } = await rasterPair(res);
   let s = 0;
@@ -255,6 +339,17 @@ async function buildDiff(res) {
   const { w, h, A, B, c, x } = await rasterPair(res);
   const out = x.createImageData(w, h), o = out.data;
   const inv = $('#invert').checked;
+  if (res.kind === 'color') {
+    for (let i = 0; i < A.length; i += 4) {
+      const d = Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]);
+      const v = lum(A, i), base = 255 - (255 - v * 255) * 0.35;
+      if (d > 90) { o[i] = 224; o[i + 1] = 67; o[i + 2] = 90; } else { o[i] = o[i + 1] = o[i + 2] = base; }
+      o[i + 3] = 255;
+    }
+    x.putImageData(out, 0, 0);
+    c.toBlob(bl => { if (diffUrl) URL.revokeObjectURL(diffUrl); diffUrl = URL.createObjectURL(bl); document.querySelectorAll('img.diff').forEach(i => i.src = diffUrl); });
+    return;
+  }
   for (let i = 0; i < A.length; i += 4) {
     let a = lum(A, i) < 0.5, b = lum(B, i) < 0.5;
     if (inv) a = !a, b = !b;
@@ -278,6 +373,7 @@ function buildPanes(reset) {
   else if (m === 'swipe') panes.innerHTML = `<div class="pane${checker}"><span class="tag">Original ⇆ Vector</span><div class="stage"><img class="orig" alt=""><img class="trace" alt="" id="swipeImg"></div><div class="swipe-line" id="swipeLine"></div></div>`;
   else panes.innerHTML = `<div class="pane"><span class="tag">Differences</span><div class="stage"><img class="diff" alt=""></div></div>`;
   $('#legend').hidden = m !== 'diff';
+  $('#legend').innerHTML = mode() === 'color' ? '<b class="r">red</b> = colour visibly different from the original' : '<b class="r">red</b> only in original · <b class="b">blue</b> only in trace';
   document.querySelectorAll('img.orig').forEach(i => i.src = active ? active.url : '');
   if (traceUrl) document.querySelectorAll('img.trace').forEach(i => i.src = traceUrl);
   if (diffUrl) document.querySelectorAll('img.diff').forEach(i => i.src = diffUrl);
@@ -341,6 +437,14 @@ $('#mode').addEventListener('click', e => {
 });
 addEventListener('resize', () => layout());
 
+$('#modeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
+  setMode(b.dataset.mode);
+  buildPanes(false);
+  schedule(0);
+});
+$('#cpreset').addEventListener('change', e => { applyCPreset(e.target.value); schedule(0); });
+['#colors', '#cfactor', '#cspecks', '#corner', '#csmooth', '#layering'].forEach(s => $(s).addEventListener('input', () => { labels(); schedule(220); }));
 const traceInputs = ['#thr', '#autoThr', '#factor', '#specks', '#alpha', '#invert', '#resampler', '#tol', '#flat', '#denoise', '#alphaInk'];
 traceInputs.forEach(s => $(s).addEventListener('input', () => { $('#preset').value = 'custom'; $('#preset').querySelector('[value=custom]').hidden = false; labels(); schedule(180); }));
 $('#preset').addEventListener('change', e => { applyPreset(e.target.value); $('#scanHint').hidden = true; schedule(0); });
@@ -381,7 +485,10 @@ async function addPdfPage(doc, res) {
   if (bg !== 'none') page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(...hexRgb(bg)) });
   const s = Math.min((pw - 2 * margin) / res.w, (ph - 2 * margin) / res.h);
   const ox = (pw - res.w * s) / 2, oy = ph - (ph - res.h * s) / 2;
-  page.drawSvgPath(res.d, { x: ox, y: oy, scale: s, color: rgb(...hexRgb($('#color').value)), borderWidth: 0 });
+  if (res.kind === 'color') {
+    const k = s * res.w / res.W;
+    for (const p of res.shapes) page.drawSvgPath(p.d, { x: ox, y: oy, scale: k, color: rgb(...hexRgb(p.fill)), borderWidth: 0 });
+  } else page.drawSvgPath(res.d, { x: ox, y: oy, scale: s, color: rgb(...hexRgb($('#color').value)), borderWidth: 0 });
 }
 $('#dlPdf').addEventListener('click', async () => {
   setStatus('Building PDF…');
@@ -498,6 +605,17 @@ function dxfString(layers, w, h) {
   return o.join('\r\n') + '\r\n';
 }
 function dxfFor(res) {
+  if (res.kind === 'color') {
+    const k = res.w / res.W, byFill = new Map();
+    for (const p of res.shapes) {
+      const polys = pathPolys(p.d);
+      polys.forEach(poly => poly.forEach(v => { v[0] *= k; v[1] *= k; }));
+      if (!byFill.has(p.fill)) byFill.set(p.fill, []);
+      byFill.get(p.fill).push(...polys);
+    }
+    const layers = [...byFill].map(([fill, polys]) => ({ name: 'C_' + fill.slice(1).toUpperCase(), aci: aci(fill), polys }));
+    return dxfString(layers, res.w, res.h);
+  }
   const color = $('#color').value;
   return dxfString([{ name: 'TRACE', aci: aci(color), polys: pathPolys(res.d) }], res.w, res.h);
 }
@@ -511,4 +629,7 @@ $('#dlDxfZip').addEventListener('click', async () => {
 
 if (document.body.dataset.units) { $('#svgSize').value = document.body.dataset.units; $('#svgW').value = 100; labels(); }
 const initial = document.body.dataset.preset;
+applyCPreset(CPRESETS[initial] ? initial : 'logo');
+if (CPRESETS[initial]) $('#cpreset').value = initial;
 if (PRESETS[initial]) { $('#preset').value = initial; applyPreset(initial); } else applyPreset('ink');
+setMode(document.body.dataset.mode === 'color' ? 'color' : 'bw');

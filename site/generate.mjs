@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PAGES, MODULE, WORKER, ENGINE_DIR, REPO, RELATED_EXTRA } from './pages.mjs';
+import { PAGES, MODULE, WORKER, ENGINE_DIR, VTRACER_DIR, REPO, RELATED_EXTRA } from './pages.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(process.argv[2] || path.join(here, '../../katlab-tools'));
@@ -22,8 +22,8 @@ function writeAsset(name, content) {
 
 const tpl = fs.readFileSync(path.join(here, 'template.html'), 'utf8');
 writeAsset(MODULE, fs.readFileSync(path.join(here, 'image-to-svg.js'), 'utf8').replace('__WORKER__', WORKER));
-writeAsset(WORKER, fs.readFileSync(path.join(here, 'vectorize-worker.js'), 'utf8').replace("'/assets/potrace-r2/", `'/assets/${ENGINE_DIR}/`));
-for (const f of fs.readdirSync(path.join(here, 'assets', ENGINE_DIR))) writeAsset(`${ENGINE_DIR}/${f}`, fs.readFileSync(path.join(here, 'assets', ENGINE_DIR, f)));
+writeAsset(WORKER, fs.readFileSync(path.join(here, 'vectorize-worker.js'), 'utf8').replace("'/assets/potrace-r2/", `'/assets/${ENGINE_DIR}/`).replaceAll('__VTRACER__', VTRACER_DIR));
+for (const dir of [ENGINE_DIR, VTRACER_DIR]) for (const f of fs.readdirSync(path.join(here, 'assets', dir))) writeAsset(`${dir}/${f}`, fs.readFileSync(path.join(here, 'assets', dir, f)));
 
 for (const p of PAGES) {
   const url = `${BASE}/${p.slug}/`;
@@ -52,7 +52,7 @@ for (const p of PAGES) {
     .replaceAll('{{OG_TITLE}}', p.ogTitle).replaceAll('{{OG_DESC}}', p.ogDesc)
     .replace('{{JSONLD}}', JSON.stringify(ld, null, 2)).replace('{{CRUMB}}', crumb)
     .replace('{{H1}}', p.h1).replace('{{SUB}}', p.sub).replace('{{PROSE}}', prose).replace('{{RELATED}}', related)
-    .replace('{{PRESET}}', p.preset).replace('{{UNITS}}', p.units ? ` data-units="${p.units}"` : '')
+    .replace('{{PRESET}}', p.preset).replace('{{MODE}}', p.mode || 'bw').replace('{{UNITS}}', p.units ? ` data-units="${p.units}"` : '')
     .replace('{{MODULE}}', MODULE).replaceAll('{{REPO}}', REPO);
   const left = html.match(/\{\{[A-Z0-9_]+\}\}/);
   if (left) throw new Error(`unfilled placeholder ${left[0]} in ${p.slug}`);
