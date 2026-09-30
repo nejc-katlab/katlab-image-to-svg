@@ -1,7 +1,7 @@
-export const MODULE = 'image-to-svg-v2.js';
-export const WORKER = 'vectorize-worker-v3.js';
+export const MODULE = 'image-to-svg-v3.js';
+export const WORKER = 'vectorize-worker-v4.js';
 export const ENGINE_DIR = 'potrace-r2';
-export const VTRACER_DIR = 'vtracer-v1';
+export const VTRACER_DIR = 'vtracer-v2';
 export const REPO = 'https://github.com/nejc-katlab/katlab-image-to-svg';
 
 const common = {

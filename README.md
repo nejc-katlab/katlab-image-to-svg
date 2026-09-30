@@ -36,8 +36,8 @@ On flat-colour test logos this reproduces the source colours exactly: a 9-shape 
 | `build.sh` | Builds `dist/potrace-v1.{js,wasm}` |
 | `site/assets/potrace-r2/` | The exact Potrace engine files deployed on tools.katlab.dev |
 | `vtracer/` | Rust wrapper crate exposing `vectorize_rgba(rgba, w, h, options, onProgress)` to JavaScript |
-| `build-vtracer.sh` | Builds `dist/vtracer-v1/vtracer{.js,_bg.wasm}` from VTracer commit `2500df76b5aea0ac22d15296b22722442f825c5b` |
-| `site/assets/vtracer-v1/` | The exact VTracer engine files deployed on tools.katlab.dev |
+| `build-vtracer.sh` | Builds `dist/vtracer-v2/vtracer{.js,_bg.wasm}` from VTracer commit `2500df76b5aea0ac22d15296b22722442f825c5b` |
+| `site/assets/vtracer-v2/` | The exact VTracer engine files deployed on tools.katlab.dev |
 | `site/vectorize-worker.js` | Module worker: decoding, pre-processing, Otsu threshold, engine calls |
 | `site/image-to-svg.js` | Page module: UI, preview, compare view, and SVG, PDF, DXF and zip export |
 | `site/template.html` | Page template shared by the tool and its landing pages |
@@ -87,7 +87,7 @@ You need rustup with Rust **1.98.1**, the `wasm32-unknown-unknown` target, and w
 ./build-vtracer.sh
 ```
 
-The script clones VTracer at the pinned commit into `build/`. It remaps local paths to `/cargo` and `/src`, so no machine-specific paths end up in the wasm, and it checks that the glue contains no `eval` or `new Function`. With the same toolchain, the output matches `site/assets/vtracer-v1/`.
+The script clones VTracer at the pinned commit into `build/`. It remaps local paths to `/cargo` and `/src`, so no machine-specific paths end up in the wasm, and it checks that the glue contains no `eval` or `new Function`. With the same toolchain, the output matches `site/assets/vtracer-v2/`.
 
 ## Third-party code
 
