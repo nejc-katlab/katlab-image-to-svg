@@ -383,7 +383,7 @@ let view = { z: 1, x: 0, y: 0, mode: 'side', swipe: 0.5 };
 let diffUrl = null;
 
 function spawn() {
-  worker = new Worker('/assets/vectorize-worker-v1.js', { type: 'module' });
+  worker = new Worker('/assets/vectorize-worker-v2.js', { type: 'module' });
   loadedId = null;
   worker.onmessage = onWorker;
   worker.onerror = e => setStatus('Engine error: ' + (e.message || 'unknown'), 'err');

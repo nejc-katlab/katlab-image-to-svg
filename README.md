@@ -22,8 +22,8 @@ On a clean 864×1226 coloring page at 8×, the trace takes about 0.2–0.5 s and
 | `upstream/potrace-1.16.tar.gz` | Unmodified upstream Potrace 1.16 source. SHA-256 `be8248a17dedd6ccbaab2fcc45835bb0502d062e40fbded3bc56028ce5eb7acc` |
 | `src/vt.c` | WebAssembly glue: streaming resample and threshold, Potrace call, path serialisation, progress |
 | `build.sh` | Builds `dist/potrace-v1.{js,wasm}` |
-| `web/assets/potrace/` | The exact engine files deployed on tools.katlab.dev |
-| `web/assets/vectorize-worker-v1.js` | Module worker: decoding, pre-processing, Otsu threshold, engine calls |
+| `web/assets/potrace-r2/` | The exact engine files deployed on tools.katlab.dev |
+| `web/assets/vectorize-worker-v2.js` | Module worker: decoding, pre-processing, Otsu threshold, engine calls |
 | `web/image-to-svg/index.html` | The tool page: UI, preview, compare view, SVG, PDF and zip export |
 | `test/golden.mjs` | Node harness that traces a raw 8-bit greyscale file |
 
@@ -36,7 +36,7 @@ You need [emsdk](https://github.com/emscripten-core/emsdk) **6.0.10**, the versi
 ./build.sh
 ```
 
-The output in `dist/` is byte-identical to `web/assets/potrace/`.
+The output in `dist/` is byte-identical to `web/assets/potrace-r2/`.
 
 For the Node test build:
 

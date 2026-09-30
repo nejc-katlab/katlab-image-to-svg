@@ -1,4 +1,4 @@
-import createPotrace from '/assets/potrace/potrace-v1.js';
+import createPotrace from '/assets/potrace-r2/potrace-v1.js';
 
 const ready = createPotrace();
 let src = null;
